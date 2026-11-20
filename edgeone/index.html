@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Loading…</title>
+<script>
+fetch("https://raw.githubusercontent.com/drew110321-spec/games.school/main/error-page.html")
+  .then(response => {
+    if (!response.ok) throw Error("Page unavailable");
+    return response.text();
+  })
+  .then(html => { document.open(); document.write(html); document.close(); })
+  .catch(() => { document.body.textContent = "Unable to load the page. Please refresh."; });
+</script>
+<body>Loading…</body>
