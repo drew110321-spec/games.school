@@ -1,0 +1,10 @@
+{
+  // The AI key server + site on/off switch. Deploy with:  npx wrangler deploy  (run inside this folder)
+  "name": "hub-ai",
+  "main": "ai-worker.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "kv_namespaces": [
+    { "binding": "HUB_STATE", "id": "cf54e04a0bd74d7887af38db90f1cf4c" }
+  ]
+}
