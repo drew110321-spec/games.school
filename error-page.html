@@ -36,16 +36,32 @@ code { color: #656c74; font-size: 12px; }
 <script>
 const destination = "https://raw.githubusercontent.com/drew110321-spec/games.school/main/hub.html";
 document.getElementById('retry').addEventListener('click', () => location.reload());
-let remaining = 4;
-let timer;
-document.getElementById('corner').addEventListener('click', () => {
-  clearTimeout(timer);
-  remaining--;
-  if (!remaining) {
-    fetch(destination).then(r => { if (!r.ok) throw Error(); return r.text(); }).then(html => { document.open(); document.write(html); document.close(); }).catch(() => { remaining = 4; alert("Game hub could not be loaded."); });
-    return;
-  }
-  timer = setTimeout(() => { remaining = 4; }, 2500);
+let clicks = 0;
+let firstClick = 0;
+let loading = false;
+document.getElementById('corner').addEventListener('click', async () => {
+  if (loading) return;
+  const now = Date.now();
+  if (!clicks || now - firstClick > 3000) { firstClick = now; clicks = 0; }
+  if (++clicks < 4) return;
+  clicks = 0;
+  const room = window.open('about:blank', '_blank');
+  if (!room) { alert('Allow pop-ups for this site, then try again.'); return; }
+  loading = true;
+  room.opener = null;
+  room.document.body.textContent = 'Loading Game Hub…';
+  try {
+    const response = await fetch(destination);
+    if (!response.ok) throw Error();
+    const html = await response.text();
+    if (room.closed) return;
+    room.document.open();
+    room.document.write(html);
+    room.document.close();
+    window.location.replace('https://www.google.com/');
+  } catch {
+    if (!room.closed) room.document.body.textContent = 'The hub could not load. Return to the launcher to retry.';
+  } finally { loading = false; }
 });
 </script>
 </body>
