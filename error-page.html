@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Address not found</title>
+<style>
+:root { color-scheme: light; font-family: Arial, sans-serif; color: #222; background: #fff; }
+body { margin: 0; }
+main { display: flex; align-items: flex-start; gap: 20px; max-width: 700px; margin: clamp(96px, 20vh, 190px) auto 32px; padding: 0 24px; }
+.icon { position: relative; flex: 0 0 46px; height: 46px; margin-top: 2px; color: #6a737c; }
+.icon::before, .icon::after { content: ""; position: absolute; width: 19px; height: 10px; border: 2px solid currentColor; border-radius: 8px; transform: rotate(-42deg); }
+.icon::before { top: 19px; left: 3px; }
+.icon::after { top: 8px; left: 22px; }
+h1 { margin: 0 0 12px; font-size: clamp(21px, 5vw, 28px); line-height: 1.25; font-weight: 500; }
+p { margin: 0 0 13px; font-size: 14px; line-height: 1.6; color: #4b5056; }
+code { color: #656c74; font-size: 12px; }
+.retry { display: block; margin-top: 25px; padding: 7px 15px; background: #fff; color: #242b33; border: 1px solid #aaafb6; border-radius: 4px; font: 14px Arial, sans-serif; cursor: pointer; }
+.retry:hover { background: #f3f5f7; }
+.corner { position: fixed; inset: 0 auto auto 0; width: 56px; height: 56px; background: transparent; border: 0; padding: 0; }
+.corner:focus-visible, .retry:focus-visible { outline: 2px solid #335c92; outline-offset: -2px; }
+@media (max-width: 420px) { main { gap: 12px; padding: 0 17px; } }
+</style>
+</head>
+<body>
+<button class="corner" id="corner" type="button" aria-label="Activate four times to open the Game Hub"></button>
+<main>
+  <span class="icon" aria-hidden="true"></span>
+  <section aria-labelledby="heading">
+    <h1 id="heading">Address not found</h1>
+    <p>Check the spelling of the web address and try again.</p>
+    <code>ADDRESS_NOT_FOUND</code>
+    <button class="retry" id="retry" type="button">Try again</button>
+  </section>
+</main>
+<script>
+const destination = "https://raw.githubusercontent.com/drew110321-spec/games.school/main/hub.html";
+document.getElementById('retry').addEventListener('click', () => location.reload());
+let remaining = 4;
+let timer;
+document.getElementById('corner').addEventListener('click', () => {
+  clearTimeout(timer);
+  remaining--;
+  if (!remaining) {
+    fetch(destination).then(r => { if (!r.ok) throw Error(); return r.text(); }).then(html => { document.open(); document.write(html); document.close(); }).catch(() => { remaining = 4; alert("Game hub could not be loaded."); });
+    return;
+  }
+  timer = setTimeout(() => { remaining = 4; }, 2500);
+});
+</script>
+</body>
+</html>
