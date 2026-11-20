@@ -206,6 +206,8 @@
   <button class="tab on" data-tab="games">Games</button>
   <button class="tab" data-tab="ai">AI</button>
   <button class="tab" data-tab="yt">YouTube</button>
+  <button class="tab" data-tab="web">Web</button>
+  <button class="tab" data-tab="tools">More tools</button>
   <button class="tab" data-tab="set">Settings</button>
   <div class="sp"></div>
   <div id="gameCtl" hidden>
@@ -220,8 +222,12 @@
 <div class="stage">
   <div class="center">
 
-    <div class="view" id="vGames">
-      <div class="gtop"><input class="search" id="filter" placeholder="Search games..."></div>
+    <section class="view" id="vWeb" hidden>
+  <form class="gtop" id="webForm"><input class="search" id="address" aria-label="Search or enter a website" placeholder="Search or enter a website"><button class="btn pri">Open</button><button type="button" class="btn" id="bookmark">Bookmark</button></form><div id="bookmarks"></div>
+</section>
+<section class="view" id="vTools" hidden><div class="gtop"><label>Companion tools <select id="toolChoice"><option value="games">Games and tools</option><option value="google">Web</option><option value="youtube">Videos</option><option value="chat">Ask</option><option value="tutorial">Tutorial</option><option value="settings">Options and themes</option></select></label><button class="btn" id="toolOpen">Open</button><span id="toolStatus" role="status"></span></div><iframe id="companion" title="isovarst companion tools" sandbox="allow-scripts allow-forms allow-popups allow-downloads allow-presentation" allowfullscreen style="width:100%;height:calc(100% - 4rem);border:0"></iframe></section>
+<div class="view" id="vGames">
+      <div class="gtop"><input class="search" id="filter" placeholder="Search games..."><button id="randomGame" class="btn">Random game</button></div>
       <div class="grid" id="grid"></div>
       <div class="note" id="noGames" hidden>No games yet.<br>Open games.html and paste your links into the GAMES list at the top.</div>
     </div>
@@ -300,7 +306,7 @@
     <div class="view" id="vYT" hidden>
       <div class="yttop">
         <input class="search" id="ytIn" placeholder="Search YouTube or paste a link">
-        <button class="btn pri" id="ytGo">Search</button>
+        <button class="btn pri" id="ytGo">Search</button><button id="historyButton" class="btn">History</button><select id="watchHistory" aria-label="Watch history" hidden></select>
         <button class="btn" id="ytBack" hidden>&larr; Results</button>
         <button hidden class="btn" id="ytKeyBtn">API key</button>
       </div>
@@ -370,7 +376,9 @@
   }
   let tab = 'games', current = -1;
   function show(){
-    ['vGames','vPlay','vAI','vYT','vSet'].forEach(id => $(id).hidden = true);
+    ['vGames','vPlay','vAI','vYT','vSet','vWeb','vTools'].forEach(id => $(id).hidden = true);
+    if (tab === 'web') $('vWeb').hidden = false;
+    if (tab === 'tools') $('vTools').hidden = false;
     if (tab === 'set') $('vSet').hidden = false;
     if (tab === 'games') $(current >= 0 ? 'vPlay' : 'vGames').hidden = false;
     if (tab === 'ai') $('vAI').hidden = false;
@@ -524,6 +532,54 @@
     if (!entry) throw new Error("Game page missing");
     return entry.async("string");
   }
+  function readList(key) {
+    try { const items = JSON.parse(store.get(key) || '[]'); return Array.isArray(items) ? items : []; }
+    catch { return []; }
+  }
+  function webUrl() {
+    const input = $('address').value.trim();
+    if (!input) return '';
+    try {
+      const url = new URL(input.includes('://') ? input : 'https://' + input);
+      if (/^https?:$/.test(url.protocol) && url.hostname.includes('.')) return url.href;
+    } catch {}
+    return 'https://www.google.com/search?q=' + encodeURIComponent(input);
+  }
+  function drawBookmarks() {
+    $('bookmarks').replaceChildren();
+    for (const url of readList('web_bookmarks')) {
+      const link = document.createElement('a');
+      link.href = url; link.textContent = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      const remove = document.createElement('button'); remove.textContent = 'Remove';
+      remove.onclick = () => { store.set('web_bookmarks', JSON.stringify(readList('web_bookmarks').filter(item => item !== url))); drawBookmarks(); };
+      const row = document.createElement('p'); row.append(link, ' ', remove); $('bookmarks').append(row);
+    }
+  }
+  drawBookmarks();
+  $('bookmark').onclick = () => { const url = webUrl(); if (url) { store.set('web_bookmarks', JSON.stringify([...new Set([...readList('web_bookmarks'), url])])); drawBookmarks(); } };
+  $('webForm').onsubmit = event => { event.preventDefault(); const url=webUrl(); if (url) window.open(url, '_blank', 'noopener,noreferrer'); };
+  $('randomGame').onclick = () => { const filter = $('filter').value.trim().toLowerCase(); const matches = games.map((g,i) => [g,i]).filter(([g]) => (g.name+' '+g.plat).toLowerCase().includes(filter)); if (matches.length) openGame(matches[Math.floor(Math.random()*matches.length)][1]); else toast('No matching games'); };
+  $('historyButton').onclick = () => {
+    const select = $('watchHistory'); select.replaceChildren(new Option('Select a watched video',''));
+    readList('video_history').forEach((v,i) => select.add(new Option(v.title || v.id || v.list,String(i))));
+    select.hidden = !select.hidden;
+  };
+  $('watchHistory').onchange = () => { const value = $('watchHistory').value; if (value !== '') { const v = readList('video_history')[Number(value)]; if (v) ytWatch(v); $('watchHistory').hidden = true; } };
+  let companionSource;
+  $('toolOpen').onclick = async () => {
+    const section = $('toolChoice').value;
+    $('toolStatus').textContent = 'Loading companion…';
+    try {
+      if (!companionSource) {
+        const response = await fetch('https://raw.githubusercontent.com/isovarst/site/main/wha.html');
+        if (!response.ok) throw Error();
+        companionSource = await response.text();
+      }
+      // Keep third-party scripts in their own sandbox, away from hub storage.
+      $('companion').srcdoc = companionSource.replace(/<head[^>]*>/i, tag => tag + '<base href="https://isovarst.github.io/site/">') + '<script>if(typeof setTab==="function")setTab('+JSON.stringify(section)+');<\/script>';
+      $('toolStatus').textContent = '';
+    } catch { $('toolStatus').textContent = 'Companion unavailable. Try again.'; }
+  };
   function openGame(i){
     if (games[i].newTab || (settings.allNewTab && !games[i].html)) {                  // site blocks playing inside other pages
       window.open(games[i].url, '_blank', 'noopener');
@@ -605,6 +661,7 @@
     bar.hidden = true;
     if (s.on === false) {
       // Switched off: stop the game and close the site right away.
+      $('companion').removeAttribute('srcdoc');
       newFrame();
       leaving = true;
       if (!document.querySelector('.off-screen')) {
@@ -699,6 +756,8 @@
   function ytSearch(q){ return ytList('Results for “' + q + '”', 'search', { q, type: 'video', safeSearch: 'moderate' }); }
 
   function ytWatch(v){
+    const prior = readList('video_history').filter(item => item.id !== v.id || item.list !== v.list);
+    store.set('video_history', JSON.stringify([v, ...prior].slice(0,100)));
     const base = 'https://www.youtube-nocookie.com/embed/';
     $('ytFrame').src = v.id
       ? base + v.id + '?autoplay=1&rel=0&modestbranding=1' + (v.list ? '&list=' + v.list : '')
