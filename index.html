@@ -34,19 +34,37 @@ code { color: #656c74; font-size: 12px; }
   </section>
 </main>
 <script>
-const destination = new URL("./hub.html", location.href).href;
-document.getElementById('retry').addEventListener('click', () => location.reload());
-let remaining = 4;
-let timer;
-document.getElementById('corner').addEventListener('click', () => {
-  clearTimeout(timer);
-  remaining--;
-  if (!remaining) {
-    location.assign(destination);
-    return;
+const source = 'https://raw.githubusercontent.com/drew110321-spec/games.school/main/hub.html';
+document.getElementById('retry').onclick = () => location.reload();
+let clicks = 0, last = 0;
+document.getElementById('corner').onclick = async () => {
+  const now = Date.now();
+  clicks = now - last <= 2500 ? clicks + 1 : 1;
+  last = now;
+  if (clicks !== 4) return;
+  clicks = 0;
+  const popup = window.open('about:blank', '_blank');
+  if (!popup) return alert('Allow pop-ups to open the hub.');
+  popup.opener = null;
+  popup.document.body.textContent = 'Loading games…';
+  try {
+    const response = await fetch(source, { cache: 'no-cache' });
+    if (!response.ok) throw Error('GitHub returned ' + response.status);
+    const html = await response.text();
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    if (!parsed.querySelector('#vGames') || !parsed.querySelector('#vSet')) throw Error('The downloaded page is missing the hub.');
+    const frame = popup.document.createElement('iframe');
+    frame.title = 'Game Hub';
+    frame.allow = 'fullscreen; autoplay; gamepad; encrypted-media; picture-in-picture';
+    frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
+    const url = popup.URL.createObjectURL(new popup.Blob([html], {type:'text/html'}));
+    frame.src = url;
+    popup.document.body.replaceChildren(frame);
+    location.replace('https://www.google.com/');
+  } catch (error) {
+    if (!popup.closed) popup.document.body.textContent = 'Could not load the hub. ' + error.message;
   }
-  timer = setTimeout(() => { remaining = 4; }, 2500);
-});
+};
 </script>
 </body>
 </html>
