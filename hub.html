@@ -203,12 +203,12 @@
 </style></head><body>
 
 <div class="top">
-  <a class="tab on" data-tab="games" href="#games">Games</a>
-  <a class="tab" data-tab="ai" href="#ai">AI</a>
-  <a class="tab" data-tab="yt" href="#yt">YouTube</a>
-  <a class="tab" data-tab="web" href="#web">Web</a>
+  <button type="button" class="tab on" data-tab="games">Games</button>
+  <button type="button" class="tab" data-tab="ai">AI</button>
+  <button type="button" class="tab" data-tab="yt">YouTube</button>
+  <button type="button" class="tab" data-tab="web">Web</button>
 
-  <a class="tab" data-tab="set" href="#set">Settings</a>
+  <button type="button" class="tab" data-tab="set">Settings</button>
   <div class="sp"></div>
   <div id="gameCtl" hidden>
     <span id="gName"></span>
@@ -392,6 +392,12 @@
     tab = Object.hasOwn(views, name) ? name : 'games';
     show();
   }
+  document.querySelectorAll('.top [data-tab]').forEach(button => {
+    button.addEventListener('click', () => {
+      tab = button.dataset.tab;
+      show();
+    });
+  });
   window.addEventListener('hashchange', selectTab);
 
   /* ---------- settings (saved on this device) ---------- */
