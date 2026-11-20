@@ -223,7 +223,9 @@
   <div class="center">
 
     <section class="view" id="vWeb" hidden>
-  <form class="gtop" id="webForm"><input class="search" id="address" aria-label="Search or enter a website" placeholder="Search or enter a website"><button class="btn pri">Open</button><button type="button" class="btn" id="bookmark">Bookmark</button></form><div id="bookmarks"></div><iframe id="webResult" title="Website" sandbox="allow-forms allow-scripts" referrerpolicy="no-referrer" hidden style="width:100%;height:65vh;border:0"></iframe><div id="webMatches" aria-live="polite"></div>
+      <details><summary>Address and bookmarks</summary>  <form class="gtop" id="webForm"><input class="search" id="address" aria-label="Search or enter a website" placeholder="Search or enter a website"><button class="btn pri">Open</button><button type="button" class="btn" id="bookmark">Bookmark</button></form><div id="bookmarks"></div></details>
+      <iframe id="webResult" title="Google Search" credentialless sandbox="allow-forms allow-scripts allow-same-origin" referrerpolicy="no-referrer" style="flex:1;width:100%;border:0;background:white"></iframe>
+      <div id="webMatches" aria-live="polite"></div>
 </section>
 
 <div class="view" id="vGames">
@@ -386,6 +388,7 @@
     $('gameCtl').hidden = active !== 'vPlay';
     if (tab === 'ai') $('prompt').focus();
     if (tab === 'yt') ytOpen();
+    if (tab === 'web' && !$('webResult').hasAttribute('src')) openWeb('https://www.google.com/webhp?igu=1');
   }
   function selectTab(){
     const name = location.hash.slice(1);
@@ -571,11 +574,15 @@
   function openWeb(url) {
     const results = $('webMatches'), frame = $('webResult');
     results.replaceChildren(); frame.hidden = true; frame.removeAttribute('src');
+    if (!('credentialless' in frame)) {
+      results.textContent = 'Use Chrome or Edge to open the signed-out Google panel.';
+      return;
+    }
     const target = new URL(url);
     if (!['http:', 'https:'].includes(target.protocol)) return;
     if (target.hostname !== 'www.google.com' || target.pathname !== '/search') {
       frame.src = target.href; frame.hidden = false;
-      results.textContent = 'Some websites prevent embedded viewing.';
+      if (target.hostname !== 'www.google.com') results.textContent = 'Some websites prevent embedded viewing.';
       return;
     }
     frame.src = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(target.searchParams.get('q') || '');
@@ -727,16 +734,19 @@
     const key = ytKey();
     if (key) q.set('key', key);
     const r = await fetch((key ? 'https://www.googleapis.com/youtube/v3/' : YT) + path + '?' + q);
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
+    const j = await r.json().catch(() => null);
+    if (!j) throw Error('YouTube search returned an unreadable response. Check the shared service or enter a YouTube Data API key.');
+    if (!r.ok || j.error) {
       const reason = (j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || '';
       if (reason === 'quotaExceeded') throw new Error('The free YouTube search limit is used up for today. It resets tomorrow. Pasting video links still works.');
       if (/keyInvalid|badRequest/.test(reason) || /API key not valid/i.test(JSON.stringify(j)))
         throw new Error('That YouTube API key didn’t work. Click API key and paste it again.');
       if (reason === 'accessNotConfigured' || /has not been used|is disabled/i.test(JSON.stringify(j)))
         throw new Error('Turn on “YouTube Data API v3” for your key’s project in console.cloud.google.com, then try again.');
+      if (!key && r.status === 404) throw Error('Shared YouTube search has not been deployed. Enter a YouTube Data API key below to search.');
       throw new Error((j.error && j.error.message) || ('YouTube error ' + r.status));
     }
+    if (!Array.isArray(j.items)) throw Error('The shared service did not return YouTube results. Enter a YouTube Data API key to search directly.');
     return j;
   }
 
@@ -762,12 +772,15 @@
     };
   }
 
+  let ytRequest = 0;
   async function ytList(heading, path, params, append){
-    if (!append) { $('ytGrid').innerHTML = ''; $('ytHead').textContent = heading; }
+    const request = ++ytRequest;
+    if (!append) { ytNext = null; $('ytGrid').innerHTML = ''; $('ytHead').textContent = heading; }
     $('ytMore').hidden = true;
     ytNoteMsg(append ? '' : '<span class="dots">Loading</span>');
     try {
       const j = await ytApi(path, Object.assign({ part: 'snippet', maxResults: 24 }, params, append && ytNext ? { pageToken: ytNext } : {}));
+      if (request !== ytRequest) return;
       ytNoteMsg('');
       const vids = (j.items || []).map(toVid).filter(v => v.id);
       vids.forEach(v => $('ytGrid').appendChild(card(v)));
@@ -776,6 +789,8 @@
       $('ytMore').hidden = !ytNext;
       ytLast = () => ytList(heading, path, params, true);
     } catch(e) {
+      if (request !== ytRequest) return;
+      if (!ytKey()) $('ytKeybox').hidden = false;
       ytNoteMsg(esc(e.message));
     }
   }
